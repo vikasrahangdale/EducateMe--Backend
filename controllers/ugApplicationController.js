@@ -1,8 +1,7 @@
 const UGApplication = require('../models/UGApplication');
+const sendMail = require("../utils/sendEmail");
 
-// @desc    Get all UG applications
-// @route   GET /api/ug-applications
-// @access  Public
+
 const getAllUGApplications = async (req, res) => {
   try {
     const {
@@ -23,7 +22,9 @@ const getAllUGApplications = async (req, res) => {
           { email: { $regex: search, $options: 'i' } },
           { mobile: { $regex: search, $options: 'i' } },
           { city: { $regex: search, $options: 'i' } },
-          { state: { $regex: search, $options: 'i' } }
+          { state: { $regex: search, $options: 'i' } },
+          { examDate: { $regex: search, $options: 'i' } }
+
         ]
       };
     }
@@ -64,9 +65,7 @@ const getAllUGApplications = async (req, res) => {
   }
 };
 
-// @desc    Get UG application by ID
-// @route   GET /api/ug-applications/:id
-// @access  Public
+
 const getUGApplicationById = async (req, res) => {
   try {
     const application = await UGApplication.findById(req.params.id);
@@ -92,14 +91,75 @@ const getUGApplicationById = async (req, res) => {
   }
 };
 
-// @desc    Create UG application (without payment - for admin)
-// @route   POST /api/ug-applications
-// @access  Public
+
+const ugApplicationEmailTemplate = (data) => `
+  <p>Dear <b>${data.name}</b>,</p>
+
+  <p>Greetings from <b>Educate Me!</b></p>
+
+  <p>We’re pleased to inform you that your application for the 
+  <b>EM-MAT Exam</b> has been successfully received and your payment of 
+  <b>₹500</b> has been confirmed.</p>
+
+  <h3>📌 Exam & Application Details</h3>
+  <ul>
+    <li><b>Exam Name:</b> EM-MAT (Educate Me Management Aptitude Test)</li>
+    <li><b>Application Status:</b> Confirmed</li>
+    <li><b>Exam Date:</b> ${data.examDate || "(Chosen by Student)"}</li>
+    <li><b>Mode of Exam:</b> Take from Home (CBT)</li>
+    <li><b>Exam Duration:</b> 60 minutes (UG)</li>
+    <li><b>Exam Hours:</b> 11:00 AM – 5:00 PM</li>
+  </ul>
+
+  <h3>🧾 Payment Details</h3>
+  <ul>
+    <li><b>Amount Paid:</b> ₹500</li>
+    <li><b>Transaction ID:</b> ${data.transactionId || "Not Provided"}</li>
+    <li><b>Payment Status:</b> ${data.paymentStatus}</li>
+    <li><b>Payment Date:</b> ${new Date().toLocaleDateString()}</li>
+  </ul>
+
+  <h3>👤 Personal Details</h3>
+  <ul>
+    <li><b>Name:</b> ${data.name}</li>
+    <li><b>Email:</b> ${data.email}</li>
+    <li><b>Mobile:</b> ${data.mobile}</li>
+    <li><b>City:</b> ${data.city || "Not Provided"}</li>
+    <li><b>State:</b> ${data.state || "Not Provided"}</li>
+    <li><b>Stream:</b> ${data.stream}</li>
+  </ul>
+
+  <h3>📍 Next Steps</h3>
+  <ol>
+    <li>Please check your registered email regularly for further updates.</li>
+    <li>Course Prep Material has already been sent to you.</li>
+    <li>Keep your application number and payment receipt safe for future reference.</li>
+    <li>Prepare well — we wish you the very best for your upcoming EM-MAT Exam!</li>
+  </ol>
+
+  <p>
+    If you have any questions or need assistance, feel free to contact us at<br>
+    📩 <b>admissions@educate-me.in</b> or call 📞 <b>7974163158</b>.
+  </p>
+
+  <p>
+    Thank you for choosing <b>Educate Me</b>.<br>
+    We look forward to seeing you excel in your academic journey ahead!
+  </p>
+
+  <p>
+    Warm regards,<br>
+    <b>Team Educate Me</b><br>
+    📩 admissions@educate-me.in |
+    🌐 <a href="https://www.educate-me.in" target="_blank">www.educate-me.in</a>
+  </p>
+`;
+
 const createUGApplication = async (req, res) => {
   try {
     const applicationData = req.body;
 
-    // Check if application already exists
+    // Check existing user
     const existingApplication = await UGApplication.findOne({
       $or: [
         { email: applicationData.email },
@@ -114,13 +174,15 @@ const createUGApplication = async (req, res) => {
       });
     }
 
+    // Create new UG application
     const application = await UGApplication.create(applicationData);
 
     res.status(201).json({
       success: true,
-      message: 'UG Application created successfully',
+      message: 'UG Application created successfully (Email will be sent after payment confirmation)',
       application
     });
+
   } catch (error) {
     console.error('Error creating UG application:', error);
     res.status(500).json({
@@ -131,22 +193,42 @@ const createUGApplication = async (req, res) => {
   }
 };
 
-// @desc    Update UG application
-// @route   PUT /api/ug-applications/:id
-// @access  Public
+
 const updateUGApplication = async (req, res) => {
   try {
+    const oldApplication = await UGApplication.findById(req.params.id);
+
+    if (!oldApplication) {
+      return res.status(404).json({
+        success: false,
+        message: 'UG Application not found'
+      });
+    }
+
     const application = await UGApplication.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
     );
 
-    if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: 'UG Application not found'
-      });
+    // 🚨 Send Email ONLY when payment changes from pending → completed
+    if (
+      oldApplication.paymentStatus !== "completed" &&
+      application.paymentStatus === "completed"
+    ) {
+      try {
+        const html = ugApplicationEmailTemplate(application);
+
+        await sendMail(
+          application.email,
+          "Your UG EM-MAT Application Payment is Confirmed!",
+          html
+        );
+
+        console.log("UG payment confirmation email sent successfully");
+      } catch (emailErr) {
+        console.log("Email sending failed:", emailErr.message);
+      }
     }
 
     res.json({
@@ -154,6 +236,7 @@ const updateUGApplication = async (req, res) => {
       message: 'UG Application updated successfully',
       application
     });
+
   } catch (error) {
     console.error('Error updating UG application:', error);
     res.status(500).json({
@@ -164,9 +247,7 @@ const updateUGApplication = async (req, res) => {
   }
 };
 
-// @desc    Delete UG application
-// @route   DELETE /api/ug-applications/:id
-// @access  Public
+
 const deleteUGApplication = async (req, res) => {
   try {
     const application = await UGApplication.findByIdAndDelete(req.params.id);
@@ -192,9 +273,7 @@ const deleteUGApplication = async (req, res) => {
   }
 };
 
-// @desc    Get UG applications statistics
-// @route   GET /api/ug-applications/stats/overview
-// @access  Public
+
 const getUGApplicationsStats = async (req, res) => {
   try {
     const totalApplications = await UGApplication.countDocuments();
@@ -265,5 +344,6 @@ module.exports = {
   createUGApplication,
   updateUGApplication,
   deleteUGApplication,
-  getUGApplicationsStats
+  getUGApplicationsStats,
+  ugApplicationEmailTemplate
 };

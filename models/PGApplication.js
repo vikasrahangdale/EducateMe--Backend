@@ -15,6 +15,7 @@ const pgApplicationSchema = new mongoose.Schema({
   passingYear: { type: String, required: true },
   paymentStatus: { type: String, default: 'pending' },
   paymentId: { type: String },
+  examDate: { type: String, required: true },
   orderId: { type: String },
   applicationDate: { type: Date, default: Date.now }
 });

@@ -1,5 +1,8 @@
 const User = require("../models/userModel");
 const jwt = require("jsonwebtoken");
+const sendMail = require("../utils/sendEmail");
+
+
 
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET || "your-secret-key", {
@@ -7,57 +10,112 @@ const generateToken = (id, role) => {
   });
 };
 
+
 const registerUser = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
 
-    // Validation
+    // Required fields check
     if (!name || !email || !password || !phone) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
+    // Check existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "User already exists with this email"
+        message: "User already exists with this email",
       });
     }
 
+    // Create user first
     const user = await User.create({
       name,
       email,
       password,
       phone,
-      role: "user"
+      role: "user",
     });
 
-   const token = generateToken(user._id, user.role);
+    const token = generateToken(user._id, user.role);
 
+    // ============================
+    //  CUSTOM EMAIL TEMPLATE HERE
+    // ============================
 
+    const htmlTemplate = `
+      <p>Dear <b>${name}</b>,</p>
+
+      <p>Greetings from <b>Educate Me!</b></p>
+
+      <p>We’re delighted to inform you that your account has been successfully created on the 
+      <b>Educate Me Portal</b>. You can now log in and access your dashboard, learning materials,
+      and updates related to your EM-MAT journey.</p>
+
+      <h3>🔐 Login Details</h3>
+      <ul>
+        <li><b>Registered Email:</b> ${email}</li>
+        <li><b>Account Status:</b> Active</li>
+        <li><b>Login Link:</b> <a href="https://www.educate-me.in/login">Click here to Login</a></li>
+      </ul>
+
+      <h3>📌 What You Can Do Next:</h3>
+      <ol>
+        <li>Access your dashboard and update your profile details.</li>
+        <li>Check your exam updates and important announcements.</li>
+        <li>Download EM-MAT preparation materials.</li>
+        <li>Stay connected with upcoming notifications and alerts.</li>
+      </ol>
+
+      <p>We're excited to have you on board and wish you the very best for your 
+      academic journey ahead! Should you need any assistance, feel free to reach out.</p>
+
+      <p>
+      Warm regards,<br>
+      <b>Team Educate Me</b><br>
+      📩 admissions@educate-me.in |
+      🌐 <a href="https://www.educate-me.in">www.educate-me.in</a>
+      </p>
+    `;
+
+    // Try sending welcome email
+    try {
+      await sendMail(
+        email,
+        "Welcome to Educate Me – Your Account is Created!",
+        htmlTemplate
+      );
+    } catch (err) {
+      console.log("Email sending failed:", err.message);
+    }
+
+    // Success Response
     res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message: "User registered successfully & Welcome email sent!",
       data: {
         id: user._id,
         name: user.name,
         email: user.email,
         phone: user.phone,
         role: user.role,
-        token
-      }
+        token,
+      },
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Error in user registration",
-      error: error.message
+      error: error.message,
     });
   }
 };
+
 
 // Login User
 const loginUser = async (req, res) => {
