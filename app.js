@@ -11,9 +11,10 @@ connectDB();
 
 app.use(cors({
   origin: [
-    "http://localhost:8080",
-    "http://192.168.1.4:8080",
+    // "http://localhost:8080",
+    // "http://192.168.1.4:8080",
      "http://localhost:5173",
+     "https://educate-me.in"
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   credentials: true,
