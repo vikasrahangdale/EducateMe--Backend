@@ -10,7 +10,7 @@ app.use(express.json());
 connectDB();
 
 app.use(cors({
-  origin: "http://localhost:8080", 
+  origin: "https://educate-me.in", 
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   credentials: true,
 }));
