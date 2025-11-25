@@ -10,15 +10,14 @@ const razorpay = new Razorpay({
 // ✅ Create Order
 exports.createOrder = async (req, res) => {
   try {
-    const { amount } = req.body; // amount in rupees
+    let { amount } = req.body;
 
-    if (!amount) {
-      return res.status(400).json({ error: 'Amount is required' });
-    }
+    amount = Number(amount) || 500;
 
-    // Convert to paise
+    const finalAmount = amount + 10;
+
     const options = {
-      amount: Number(amount) * 100,
+      amount: finalAmount * 100,  
       currency: 'INR',
       receipt: `receipt_${Date.now()}`
     };
@@ -28,6 +27,8 @@ exports.createOrder = async (req, res) => {
     res.json({
       success: true,
       key: process.env.RAZORPAY_KEY_ID,
+      platformCharge: 10,
+      payableAmount: finalAmount,
       order
     });
   } catch (err) {
@@ -35,6 +36,7 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({ error: 'Failed to create Razorpay order' });
   }
 };
+
 
 // ✅ Verify Payment
 exports.verifyPayment = async (req, res) => {

@@ -3,7 +3,7 @@ const transporter = require("../config/email");
 const sendMail = async (to, subject, html) => {
   try {
     await transporter.sendMail({
-      from: `vikasrahangdale5606@gmail.com`,
+      from: `nikhil.sewaramani.edu@gmail.com`,
       to,
       subject,
       html,
