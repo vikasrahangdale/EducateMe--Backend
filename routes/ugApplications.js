@@ -5,7 +5,9 @@ const {
   createUGApplication,
   updateUGApplication,
   deleteUGApplication,
-  getUGApplicationsStats
+  getUGApplicationsStats,
+  downloadUGApplicationsPDF,
+  getUGApplicationsByUserId
 } = require('../controllers/ugApplicationController');
 
 const router = express.Router();
@@ -14,7 +16,11 @@ router.post('/createug', createUGApplication);
 
 router.get('/getug', getAllUGApplications);
 
+router.get('/by-user/:userId', getUGApplicationsByUserId);
+
 router.get('/stats/overview', getUGApplicationsStats);
+
+router.get('/download-pdf', downloadUGApplicationsPDF);
 
 router.get('/:id', getUGApplicationById);
 

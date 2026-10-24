@@ -17,19 +17,52 @@ const protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
-    req.user = await User.findById(decoded.id);
+    
+    // Only select necessary fields, exclude password
+    const user = await User.findById(decoded.id).select("-password");
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found. Token may be invalid."
+      });
+    }
 
+    req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ success: false, message: "Invalid token" });
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid token" 
+      });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Token expired" 
+      });
+    }
+    res.status(401).json({ 
+      success: false, 
+      message: "Authentication failed" 
+    });
   }
 };
 
 const adminMiddleware = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required"
+    });
+  }
+
   if (req.user.role !== "admin") {
-    return res
-      .status(403)
-      .json({ success: false, message: "Admin access only!" });
+    return res.status(403).json({ 
+      success: false, 
+      message: "Admin access only!" 
+    });
   }
   next();
 };

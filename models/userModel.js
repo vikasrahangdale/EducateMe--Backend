@@ -4,25 +4,29 @@ const bcrypt = require("bcryptjs");
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
-    trim: true
+    required: [true, "Name is required"],
+    trim: true,
+    maxlength: [100, "Name cannot exceed 100 characters"]
   },
   email: {
     type: String,
-    required: true,
+    required: [true, "Email is required"],
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    match: [/^\S+@\S+\.\S+$/, "Please provide a valid email address"]
   },
   phone: {
     type: String,
-    required: true,
-    minlength: 10
+    required: [true, "Phone number is required"],
+    minlength: [10, "Phone number must be at least 10 digits"],
+    maxlength: [15, "Phone number cannot exceed 15 characters"]
   },
   password: {
     type: String,
-    required: true,
-    minlength: 6
+    required: [true, "Password is required"],
+    minlength: [6, "Password must be at least 6 characters"],
+    select: false // Don't return password by default
   },
   role: {
     type: String,
@@ -32,6 +36,10 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Indexes for better query performance
+userSchema.index({ phone: 1 });
+userSchema.index({ role: 1 });
 
 // Hash password before saving
 userSchema.pre("save", async function(next) {

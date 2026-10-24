@@ -1,14 +1,6 @@
 const User = require("../models/userModel");
-const jwt = require("jsonwebtoken");
 const sendMail = require("../utils/sendEmail");
-
-
-
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET || "your-secret-key", {
-    expiresIn: "30d",
-  });
-};
+const generateToken = require("../utils/generateToken");
 
 
 const registerUser = async (req, res) => {
@@ -117,7 +109,10 @@ const registerUser = async (req, res) => {
 };
 
 
-// Login User
+
+
+
+
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -126,29 +121,32 @@ const loginUser = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required"
+        message: "Email and password are required",
       });
     }
 
-    const user = await User.findOne({ email });
+    // 🔥 IMPORTANT: explicitly select password
+    const user = await User.findOne({ email }).select("+password");
+
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid email or password",
       });
     }
 
     const isPasswordValid = await user.comparePassword(password);
+
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid email or password",
       });
     }
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.role);
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Login successful",
       data: {
@@ -157,17 +155,23 @@ const loginUser = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        token
-      }
+        token,
+      },
     });
+
   } catch (error) {
-    res.status(500).json({
+    console.error("LOGIN ERROR:", error);
+    return res.status(500).json({
       success: false,
-      message: "Error in login",
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
+
+
+
+
 
 // Logout User
 const logoutUser = async (req, res) => {
