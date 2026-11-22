@@ -6,6 +6,14 @@ const bookingRoutes = require('./routes/bookingRoutes');
 
 const app = express();
 
+// IQ Arena Razorpay webhook needs the raw request body to verify its signature,
+// so it is registered before the JSON parser. No other route is affected.
+app.post(
+  '/user/iq-arena/webhook',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  require('./controllers/iqArenaController').handleWebhook
+);
+
 // Middleware setup
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -33,6 +41,7 @@ app.use('/user/ug-applications', require('./routes/ugApplications'));
 app.use('/user/pg-applications', require('./routes/pgApplications'));
 app.use('/booking', bookingRoutes);
 app.use('/ads', require('./routes/adsRoutes'));
+app.use('/user/iq-arena', require('./routes/iqArenaRoutes'));
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
